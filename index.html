@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>여주시 부동산 실거래가</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+            background: #0a0a0a;
+            color: #e5e5e5;
+            line-height: 1.5;
+            padding: 12px;
+        }
+        .tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px 6px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #888;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab:hover { border-color: #555; }
+        .tab.active {
+            background: linear-gradient(135deg, #4a1d6a, #2d1245);
+            border-color: #6b3d99;
+            color: #fff;
+        }
+        .tab .count {
+            display: block;
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .tab[data-type="apt"] .count { color: #c084fc; }
+        .tab[data-type="villa"] .count { color: #60a5fa; }
+        .tab[data-type="house"] .count { color: #4ade80; }
+        .tab[data-type="land"] .count { color: #fbbf24; }
+        .header {
+            background: linear-gradient(135deg, #4a1d6a, #1a0a2e);
+            border: 1px solid #6b3d99;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .header.villa { background: linear-gradient(135deg, #1e3a5f, #0f1f33); border-color: #3b82f6; }
+        .header.house { background: linear-gradient(135deg, #14532d, #0a2615); border-color: #22c55e; }
+        .header.land { background: linear-gradient(135deg, #713f12, #3d2106); border-color: #f59e0b; }
+        .header h1 { font-size: 16px; margin-bottom: 2px; }
+        .header .subtitle { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 12px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .stat {
+            text-align: center;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            padding: 8px 4px;
+        }
+        .stat .label { font-size: 10px; color: rgba(255,255,255,0.5); }
+        .stat .value { font-size: 14px; font-weight: 700; color: #c084fc; }
+        .header.villa .stat .value { color: #60a5fa; }
+        .header.house .stat .value { color: #4ade80; }
+        .header.land .stat .value { color: #fbbf24; }
+        .list { display: flex; flex-direction: column; gap: 6px; }
+        .card {
+            background: #141414;
+            border: 1px solid #252525;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .card:hover { border-color: #444; }
+        .card-main {
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-left { flex: 1; min-width: 0; }
+        .card-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .card-name span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .badge {
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .card-meta {
+            font-size: 11px;
+            color: #666;
+        }
+        .card-meta span { margin-right: 6px; }
+        .card-right {
+            text-align: right;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-price { font-size: 14px; font-weight: 700; }
+        .card-price.apt { color: #c084fc; }
+        .card-price.villa { color: #60a5fa; }
+        .card-price.house { color: #4ade80; }
+        .card-price.land { color: #fbbf24; }
+        .arrow {
+            width: 18px;
+            height: 18px;
+            color: #555;
+            transition: transform 0.3s;
+        }
+        .card.open .arrow { transform: rotate(180deg); }
+        .card-detail {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: #0f0f0f;
+        }
+        .card.open .card-detail { max-height: 250px; }
+        .card-detail-inner {
+            padding: 12px;
+            border-top: 1px solid #222;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .detail-item { display: flex; flex-direction: column; gap: 1px; }
+        .detail-item .label { font-size: 10px; color: #555; }
+        .detail-item .value { font-size: 12px; color: #aaa; }
+        .footer {
+            text-align: center;
+            padding: 16px 0 8px;
+            font-size: 10px;
+            color: #444;
+        }
+        .footer a { color: #c084fc; text-decoration: none; }
+        .empty {
+            text-align: center;
+            padding: 30px 20px;
+            color: #555;
+            font-size: 12px;
+        }
+        .content { display: none; }
+        .content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <div class="tab active" data-type="apt" onclick="switchTab('apt')">
+            아파트<span class="count" id="apt-count">0</span>
+        </div>
+        <div class="tab" data-type="villa" onclick="switchTab('villa')">
+            연립/다세대<span class="count" id="villa-count">0</span>
+        </div>
+        <div class="tab" data-type="house" onclick="switchTab('house')">
+            단독/다가구<span class="count" id="house-count">0</span>
+        </div>
+        <div class="tab" data-type="land" onclick="switchTab('land')">
+            토지<span class="count" id="land-count">0</span>
+        </div>
+    </div>
+    
+    <div id="content-apt" class="content active">
+        <div class="header">
+            <h1>🏢 여주시 아파트 실거래가</h1>
+            <p class="subtitle" id="apt-period"></p>
+            <div class="stats">
+                <div class="stat"><div class="label">거래건수</div><div class="value" id="apt-total">0건</div></div>
+                <div class="stat"><div class="label">평균가</div><div class="value" id="apt-avg">-</div></div>
+                <div class="stat"><div class="label">최고가</div><div class="value" id="apt-max">-</div></div>
+            </div>
+        </div>
+        <div class="list" id="apt-list"></div>
+    </div>
+    
+    <div id="content-villa" class="content">
+        <div class="header villa">
+            <h1>🏘️ 여주시 연립/다세대 실거래가</h1>
+            <p class="subtitle" id="villa-period"></p>
+            <div class="stats">
+                <div class="stat"><div class="label">거래건수</div><div class="value" id="villa-total">0건</div></div>
+                <div class="stat"><div class="label">평균가</div><div class="value" id="villa-avg">-</div></div>
+                <div class="stat"><div class="label">최고가</div><div class="value" id="villa-max">-</div></div>
+            </div>
+        </div>
+        <div class="list" id="villa-list"></div>
+    </div>
+    
+    <div id="content-house" class="content">
+        <div class="header house">
+            <h1>🏠 여주시 단독/다가구 실거래가</h1>
+            <p class="subtitle" id="house-period"></p>
+            <div class="stats">
+                <div class="stat"><div class="label">거래건수</div><div class="value" id="house-total">0건</div></div>
+                <div class="stat"><div class="label">평균가</div><div class="value" id="house-avg">-</div></div>
+                <div class="stat"><div class="label">최고가</div><div class="value" id="house-max">-</div></div>
+            </div>
+        </div>
+        <div class="list" id="house-list"></div>
+    </div>
+    
+    <div id="content-land" class="content">
+        <div class="header land">
+            <h1>🌳 여주시 토지 실거래가</h1>
+            <p class="subtitle" id="land-period"></p>
+            <div class="stats">
+                <div class="stat"><div class="label">거래건수</div><div class="value" id="land-total">0건</div></div>
+                <div class="stat"><div class="label">평균가</div><div class="value" id="land-avg">-</div></div>
+                <div class="stat"><div class="label">최고가</div><div class="value" id="land-max">-</div></div>
+            </div>
+        </div>
+        <div class="list" id="land-list"></div>
+    </div>
+    
+    <div class="footer">
+        자료: <a href="https://rt.molit.go.kr" target="_blank">국토교통부 실거래가 공개시스템</a><br>
+        <span id="update-time"></span>
+    </div>
+
+    <script>
+        const DATA = {"period": "2025년 12월 넷째주", "updateTime": "2025-12-27 20:24", "apt": {"total": 41, "avg": "2억 5,358", "max": "5억 7,500", "items": [{"name": "여주오드카운티", "dong": "오학동", "area": 59.8584, "floor": 15, "price": 20200, "buildYear": 2014, "dealDate": "12/24", "dealType": "중개거래", "isNew": true}, {"name": "예일세띠앙", "dong": "교동", "area": 116.711, "floor": 1, "price": 32000, "buildYear": 2006, "dealDate": "12/23", "dealType": "중개거래", "isNew": false}, {"name": "e편한세상여주", "dong": "현암동", "area": 84.4212, "floor": 10, "price": 28800, "buildYear": 2014, "dealDate": "12/23", "dealType": "중개거래", "isNew": false}, {"name": "여주역휴먼빌아트라움", "dong": "교동", "area": 84.998, "floor": 13, "price": 51900, "buildYear": 2023, "dealDate": "12/19", "dealType": "중개거래", "isNew": false}, {"name": "동남", "dong": "가남읍 신해리", "area": 59.77, "floor": 9, "price": 9700, "buildYear": 1997, "dealDate": "12/19", "dealType": "중개거래", "isNew": false}, {"name": "여주역푸르지오클라테르", "dong": "교동", "area": 84.9907, "floor": 2, "price": 45000, "buildYear": 2021, "dealDate": "12/18", "dealType": "직거래", "isNew": false}, {"name": "동원", "dong": "홍문동", "area": 59.469, "floor": 18, "price": 17500, "buildYear": 2001, "dealDate": "12/17", "dealType": "중개거래", "isNew": false}, {"name": "우찬셀레스", "dong": "세종대왕면 신지리", "area": 57.5886, "floor": 8, "price": 15500, "buildYear": 2016, "dealDate": "12/16", "dealType": "직거래", "isNew": false}, {"name": "호반리젠시빌", "dong": "교동", "area": 84.8742, "floor": 9, "price": 23000, "buildYear": 2003, "dealDate": "12/15", "dealType": "직거래", "isNew": false}, {"name": "을성", "dong": "가남읍 태평리", "area": 60.69, "floor": 2, "price": 8000, "buildYear": 1986, "dealDate": "12/15", "dealType": "직거래", "isNew": false}, {"name": "여주아이파크", "dong": "현암동", "area": 84.9804, "floor": 9, "price": 39000, "buildYear": 2020, "dealDate": "12/14", "dealType": "중개거래", "isNew": false}, {"name": "여주역센트레빌트리니체", "dong": "교동", "area": 66.9687, "floor": 7, "price": 34900, "buildYear": 2024, "dealDate": "12/14", "dealType": "중개거래", "isNew": false}, {"name": "여주역푸르지오클라테르", "dong": "교동", "area": 84.9539, "floor": 14, "price": 48500, "buildYear": 2021, "dealDate": "12/13", "dealType": "중개거래", "isNew": false}, {"name": "예일세띠앙", "dong": "교동", "area": 74.14, "floor": 12, "price": 27000, "buildYear": 2006, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}, {"name": "동남", "dong": "가남읍 신해리", "area": 59.77, "floor": 10, "price": 10500, "buildYear": 1997, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}, {"name": "강남", "dong": "교동", "area": 84.97, "floor": 14, "price": 20500, "buildYear": 1998, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}, {"name": "여주KCC스위첸", "dong": "천송동", "area": 84.9386, "floor": 38, "price": 50800, "buildYear": 2019, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}, {"name": "여주역우남퍼스트빌", "dong": "교동", "area": 99.9186, "floor": 13, "price": 57500, "buildYear": 2023, "dealDate": "12/12", "dealType": "직거래", "isNew": false}, {"name": "현진에버빌-1", "dong": "가남읍 신해리", "area": 28.03, "floor": 9, "price": 5700, "buildYear": 2000, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}, {"name": "여주KCC스위첸", "dong": "천송동", "area": 84.9386, "floor": 38, "price": 50800, "buildYear": 2019, "dealDate": "12/12", "dealType": "중개거래", "isNew": false}]}, "villa": {"total": 28, "avg": "1억 9,724", "max": "2억 4,261", "items": [{"name": "한강주택", "dong": "하동", "area": 60.06, "floor": 1, "price": 6000, "buildYear": 1986, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "모란주택", "dong": "창동", "area": 47.52, "floor": 3, "price": 5500, "buildYear": 2007, "dealDate": "12/18", "dealType": "직거래", "isNew": false}, {"name": "수학빌리지", "dong": "대신면 율촌리", "area": 50.22, "floor": 4, "price": 2000, "buildYear": 1992, "dealDate": "12/15", "dealType": "직거래", "isNew": false}, {"name": "개나리주택", "dong": "현암동", "area": 42.84, "floor": 1, "price": 8550, "buildYear": 1987, "dealDate": "12/10", "dealType": "중개거래", "isNew": false}, {"name": "중앙파크타운(110동)", "dong": "천송동", "area": 59.86, "floor": 4, "price": 12500, "buildYear": 2014, "dealDate": "12/8", "dealType": "중개거래", "isNew": false}, {"name": "힐링하우스(3동)", "dong": "점봉동", "area": 56.18, "floor": 3, "price": 12911, "buildYear": 2017, "dealDate": "12/5", "dealType": "중개거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.86, "floor": 2, "price": 21824, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 2, "price": 23504, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 56.28, "floor": 2, "price": 23846, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 2, "price": 23504, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 56.53, "floor": 2, "price": 24024, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.86, "floor": 3, "price": 22058, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 3, "price": 23737, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 56.28, "floor": 3, "price": 24082, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 3, "price": 23737, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 56.53, "floor": 3, "price": 24261, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.86, "floor": 4, "price": 22058, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 4, "price": 23737, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 56.28, "floor": 4, "price": 24082, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}, {"name": "두영NEST", "dong": "상동", "area": 55.45, "floor": 4, "price": 23737, "buildYear": 2025, "dealDate": "12/4", "dealType": "직거래", "isNew": false}]}, "house": {"total": 8, "avg": "3억 4,387", "max": "4억 6,500", "items": [{"name": "점동면 장안리 4**", "dong": "점동면 장안리", "area": 0, "floor": 0, "price": 44500, "buildYear": 2017, "dealDate": "12/22", "dealType": "직거래", "isNew": false}, {"name": "점동면 장안리 4**", "dong": "점동면 장안리", "area": 0, "floor": 0, "price": 33038, "buildYear": 2017, "dealDate": "12/17", "dealType": "중개거래", "isNew": false}, {"name": "점동면 흔암리 1**", "dong": "점동면 흔암리", "area": 0, "floor": 0, "price": 38500, "buildYear": 2012, "dealDate": "12/16", "dealType": "중개거래", "isNew": false}, {"name": "삼교동 4**", "dong": "삼교동", "area": 0, "floor": 0, "price": 30900, "buildYear": 2025, "dealDate": "12/15", "dealType": "직거래", "isNew": false}, {"name": "상동 2**", "dong": "상동", "area": 0, "floor": 0, "price": 37500, "buildYear": 2003, "dealDate": "12/11", "dealType": "중개거래", "isNew": false}, {"name": "대신면 송촌리 3**", "dong": "대신면 송촌리", "area": 0, "floor": 0, "price": 7560, "buildYear": 2010, "dealDate": "12/5", "dealType": "중개거래", "isNew": false}, {"name": "가남읍 태평리 *", "dong": "가남읍 태평리", "area": 0, "floor": 0, "price": 36600, "buildYear": 2025, "dealDate": "12/1", "dealType": "직거래", "isNew": false}, {"name": "멱곡동 3**", "dong": "멱곡동", "area": 0, "floor": 0, "price": 46500, "buildYear": 2018, "dealDate": "12/1", "dealType": "중개거래", "isNew": false}]}, "land": {"total": 185, "avg": "9,768", "max": "8억 5,750", "items": [{"name": "북내면 석우리 3*", "dong": "북내면 석우리", "area": 65.0, "floor": 0, "price": 249, "buildYear": 0, "dealDate": "12/26", "dealType": "직거래", "isNew": true}, {"name": "가남읍 상활리 5**", "dong": "가남읍 상활리", "area": 1035.0, "floor": 0, "price": 8000, "buildYear": 0, "dealDate": "12/26", "dealType": "직거래", "isNew": true}, {"name": "흥천면 외사리 5**", "dong": "흥천면 외사리", "area": 2311.0, "floor": 0, "price": 20500, "buildYear": 0, "dealDate": "12/26", "dealType": "직거래", "isNew": true}, {"name": "연양동 1**", "dong": "연양동", "area": 307.0, "floor": 0, "price": 3710, "buildYear": 0, "dealDate": "12/26", "dealType": "중개거래", "isNew": true}, {"name": "연라동 3**", "dong": "연라동", "area": 345.0, "floor": 0, "price": 16000, "buildYear": 0, "dealDate": "12/24", "dealType": "직거래", "isNew": true}, {"name": "대신면 가산리 5**", "dong": "대신면 가산리", "area": 23.0, "floor": 0, "price": 350, "buildYear": 0, "dealDate": "12/24", "dealType": "직거래", "isNew": true}, {"name": "대신면 당남리 1**", "dong": "대신면 당남리", "area": 22.75, "floor": 0, "price": 300, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "세종대왕면 용은리 산1**", "dong": "세종대왕면 용은리", "area": 3022.75, "floor": 0, "price": 18287, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "세종대왕면 용은리 산1**", "dong": "세종대왕면 용은리", "area": 283.25, "floor": 0, "price": 1712, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "점동면 사곡리 *", "dong": "점동면 사곡리", "area": 1312.0, "floor": 0, "price": 3969, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "점동면 사곡리 *", "dong": "점동면 사곡리", "area": 638.0, "floor": 0, "price": 1930, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "점동면 사곡리 *", "dong": "점동면 사곡리", "area": 1289.0, "floor": 0, "price": 3900, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "점동면 사곡리 *", "dong": "점동면 사곡리", "area": 364.0, "floor": 0, "price": 1101, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "흥천면 외사리 5**", "dong": "흥천면 외사리", "area": 595.0, "floor": 0, "price": 1000, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "점동면 현수리 7**", "dong": "점동면 현수리", "area": 1704.1, "floor": 0, "price": 8700, "buildYear": 0, "dealDate": "12/23", "dealType": "직거래", "isNew": false}, {"name": "흥천면 신근리 7**", "dong": "흥천면 신근리", "area": 975.0, "floor": 0, "price": 10500, "buildYear": 0, "dealDate": "12/22", "dealType": "중개거래", "isNew": false}, {"name": "흥천면 신근리 7**", "dong": "흥천면 신근리", "area": 35.0, "floor": 0, "price": 350, "buildYear": 0, "dealDate": "12/22", "dealType": "중개거래", "isNew": false}, {"name": "흥천면 신근리 7**", "dong": "흥천면 신근리", "area": 16.67, "floor": 0, "price": 150, "buildYear": 0, "dealDate": "12/22", "dealType": "중개거래", "isNew": false}, {"name": "점동면 당진리 6**", "dong": "점동면 당진리", "area": 2757.7, "floor": 0, "price": 20016, "buildYear": 0, "dealDate": "12/22", "dealType": "직거래", "isNew": false}, {"name": "점동면 당진리 3**", "dong": "점동면 당진리", "area": 187.0, "floor": 0, "price": 1368, "buildYear": 0, "dealDate": "12/22", "dealType": "직거래", "isNew": false}]}};
+        
+        function formatPrice(amount) {
+            if (amount >= 10000) {
+                const 억 = Math.floor(amount / 10000);
+                const 만 = amount % 10000;
+                return 만 > 0 ? `${억}억 ${만.toLocaleString()}만원` : `${억}억원`;
+            }
+            return `${amount.toLocaleString()}만원`;
+        }
+        
+        function toPyeong(area) { return (area / 3.3058).toFixed(1); }
+        
+        function switchTab(type) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[data-type="${type}"]`).classList.add('active');
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`content-${type}`).classList.add('active');
+        }
+        
+        function toggleCard(card) {
+            const wasOpen = card.classList.contains('open');
+            document.querySelectorAll('.card.open').forEach(c => c.classList.remove('open'));
+            if (!wasOpen) {
+                card.classList.add('open');
+                setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+            }
+        }
+        
+        function createCard(item, type) {
+            const pyeong = toPyeong(item.area);
+            const priceText = formatPrice(item.price);
+            const badge = item.isNew ? '<span class="badge">NEW</span>' : '';
+            const floor = item.floor ? `${item.floor}층` : '';
+            
+            return `
+                <div class="card" onclick="toggleCard(this)">
+                    <div class="card-main">
+                        <div class="card-left">
+                            <div class="card-name"><span>${item.name}</span>${badge}</div>
+                            <div class="card-meta">
+                                <span>${item.dong}</span>
+                                <span>${item.area}㎡(${pyeong}평)</span>
+                                ${floor ? `<span>${floor}</span>` : ''}
+                                <span>${item.dealDate}</span>
+                            </div>
+                        </div>
+                        <div class="card-right">
+                            <div class="card-price ${type}">${priceText}</div>
+                            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="card-detail">
+                        <div class="card-detail-inner">
+                            <div class="detail-item"><span class="label">전용면적</span><span class="value">${item.area}㎡ (${pyeong}평)</span></div>
+                            <div class="detail-item"><span class="label">거래금액</span><span class="value">${priceText}</span></div>
+                            ${item.floor ? `<div class="detail-item"><span class="label">층수</span><span class="value">${item.floor}층</span></div>` : ''}
+                            ${item.buildYear ? `<div class="detail-item"><span class="label">건축년도</span><span class="value">${item.buildYear}년</span></div>` : ''}
+                            <div class="detail-item"><span class="label">계약일</span><span class="value">2025.${item.dealDate}</span></div>
+                            <div class="detail-item"><span class="label">거래유형</span><span class="value">${item.dealType}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function init() {
+            ['apt', 'villa', 'house', 'land'].forEach(type => {
+                const d = DATA[type];
+                document.getElementById(`${type}-count`).textContent = d.total;
+                document.getElementById(`${type}-total`).textContent = `${d.total}건`;
+                document.getElementById(`${type}-avg`).textContent = d.avg;
+                document.getElementById(`${type}-max`).textContent = d.max;
+                document.getElementById(`${type}-period`).textContent = DATA.period + ' 기준 · 국토교통부';
+                
+                const list = document.getElementById(`${type}-list`);
+                list.innerHTML = d.items.length === 0 
+                    ? '<div class="empty">이번 달 거래 내역이 없습니다</div>'
+                    : d.items.map(item => createCard(item, type)).join('');
+            });
+            document.getElementById('update-time').textContent = '업데이트: ' + DATA.updateTime;
+        }
+        
+        init();
+    </script>
+</body>
+</html>
