@@ -589,9 +589,6 @@ def create_thumbnail(apt_count, villa_count, house_count, land_count, output_pat
     
     now = datetime.now()
     month = now.month
-    week = get_week_of_month()
-    week_names = ['첫째', '둘째', '셋째', '넷째', '다섯째']
-    week_str = week_names[min(week-1, 4)]
     
     # 집 아이콘
     ix, iy = 100, 120
@@ -600,7 +597,7 @@ def create_thumbnail(apt_count, villa_count, house_count, land_count, output_pat
     draw.rectangle([ix+30, iy+45, ix+50, iy+70], fill='#1a1a2e')
     
     draw.text((width//2 + 30, 135), "여주시 부동산 실거래", font=font_bold_lg, fill='#ffffff', anchor='mm')
-    draw.text((width//2, 210), f"{month}월 {week_str}주 거래 현황", font=font_bold_md, fill='#c084fc', anchor='mm')
+    draw.text((width//2, 210), f"{month}월 전체 거래 현황", font=font_bold_md, fill='#c084fc', anchor='mm')
     draw.line([(200, 260), (1000, 260)], fill='#333355', width=1)
     
     box_y, box_h, box_w, gap = 310, 160, 220, 35
@@ -619,7 +616,7 @@ def create_thumbnail(apt_count, villa_count, house_count, land_count, output_pat
         draw.text((x + box_w//2, box_y + 45), label, font=font_label, fill='#aaaaaa', anchor='mm')
         draw.text((x + box_w//2, box_y + 105), f"{count}건", font=font_count, fill=color, anchor='mm')
     
-    draw.text((width//2, 550), "여주굿뉴스", font=font_bold_md, fill='#555555', anchor='mm')
+    draw.text((width//2, 550), "여주소식", font=font_bold_md, fill='#555555', anchor='mm')
     draw.text((width//2, 595), "yjgood.kr", font=font_label, fill='#444444', anchor='mm')
     
     img.save(output_path, 'PNG', quality=95)
@@ -737,11 +734,9 @@ def main():
     
     # iframe으로 GitHub Pages 삽입
     iframe_content = f'''
-<p>여주시 부동산 실거래가 정보입니다. 아파트, 연립/다세대, 단독/다가구, 토지 거래 내역을 확인하세요.</p>
-
 <iframe src="https://leekkyg.github.io/realestate-bot/" width="100%" height="800" style="border:none; border-radius:12px; max-width:600px;" loading="lazy"></iframe>
 
-<p style="font-size:12px; color:#888; margin-top:12px;">※ 자료 출처: 국토교통부 실거래가 공개시스템</p>
+<p style="font-size:12px; color:#666; margin-top:16px;">※ {now.month}월 {week_str}주 기준 업데이트 · 거래건수는 {now.month}월 전체 누적<br>자료 출처: 국토교통부 실거래가 공개시스템</p>
 '''
     
     # 섬네일 업로드
