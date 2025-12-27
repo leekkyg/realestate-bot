@@ -47,10 +47,8 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
         response = requests.get(APT_TRADE_URL, params=params, timeout=30)
         response.raise_for_status()
         
-        # XML 파싱
         root = ET.fromstring(response.content)
         
-        # 에러 체크
         result_code = root.find('.//resultCode')
         if result_code is not None and result_code.text not in ['00', '000']:
             result_msg = root.find('.//resultMsg')
@@ -86,7 +84,6 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
 
 
 def get_text(element, tag: str) -> str:
-    """XML 요소에서 텍스트 추출"""
     el = element.find(tag)
     if el is not None and el.text:
         return el.text.strip()
@@ -94,7 +91,6 @@ def get_text(element, tag: str) -> str:
 
 
 def parse_deal_amount(amount_str: str) -> int:
-    """거래금액 파싱 (만원 단위)"""
     try:
         return int(amount_str.replace(',', '').strip())
     except:
@@ -102,7 +98,6 @@ def parse_deal_amount(amount_str: str) -> int:
 
 
 def format_price(amount: int) -> str:
-    """가격 포맷팅"""
     if amount >= 10000:
         억 = amount // 10000
         만 = amount % 10000
@@ -113,7 +108,6 @@ def format_price(amount: int) -> str:
 
 
 def calculate_price_per_area(amount: int, area: float) -> int:
-    """평당 가격 계산 (만원)"""
     if area <= 0:
         return 0
     pyeong = area / 3.3058
@@ -121,18 +115,15 @@ def calculate_price_per_area(amount: int, area: float) -> int:
 
 
 def generate_html(trades: List[Dict], year_month: str) -> str:
-    """부동산 실거래가 HTML 생성"""
     year = year_month[:4]
     month = year_month[4:]
     today = datetime.now().strftime('%Y-%m-%d %H:%M')
     
-    # 통계 계산
     total_count = len(trades)
     amounts = [parse_deal_amount(t['deal_amount']) for t in trades if parse_deal_amount(t['deal_amount']) > 0]
     avg_price = int(sum(amounts) / len(amounts)) if amounts else 0
     max_price = max(amounts) if amounts else 0
     
-    # 최근 7일 거래 (신규)
     recent_trades = []
     now = datetime.now()
     for t in trades:
@@ -147,323 +138,329 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
         except:
             pass
     
-    # 아파트별 거래 수
     apt_counts = defaultdict(int)
     for t in trades:
         if t['apt_name']:
             apt_counts[t['apt_name']] += 1
     top_apt = max(apt_counts.items(), key=lambda x: x[1]) if apt_counts else ('', 0)
-    top_apt_name = top_apt[0][:12] + '...' if len(top_apt[0]) > 12 else top_apt[0]
+    top_apt_name = top_apt[0][:10] + '...' if len(top_apt[0]) > 10 else top_apt[0]
     
     html = f'''
+<div class="yjre-wrap">
 <style>
-.yj-re-container {{
-    font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
-    background: #0f0f0f;
-    color: #e5e5e5;
-    line-height: 1.6;
-    padding: 20px;
-    border-radius: 16px;
+.yjre-wrap * {{
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
 }}
-.yj-re-header {{
-    background: linear-gradient(135deg, #4a1d6a 0%, #1a0a2e 100%);
-    border: 1px solid #6b3d99;
-    color: white;
-    padding: 30px;
-    border-radius: 16px;
-    margin-bottom: 24px;
+.yjre-wrap {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif !important;
+    background: #0f0f0f !important;
+    color: #e5e5e5 !important;
+    line-height: 1.6 !important;
+    padding: 20px !important;
+    border-radius: 16px !important;
+    max-width: 100% !important;
 }}
-.yj-re-header h2 {{
-    font-size: 28px;
-    margin: 0 0 8px 0;
+.yjre-header {{
+    background: linear-gradient(135deg, #4a1d6a 0%, #1a0a2e 100%) !important;
+    border: 1px solid #6b3d99 !important;
+    color: white !important;
+    padding: 30px !important;
+    border-radius: 16px !important;
+    margin-bottom: 24px !important;
 }}
-.yj-re-header .subtitle {{
-    opacity: 0.7;
-    font-size: 15px;
+.yjre-header h2 {{
+    font-size: 26px !important;
+    margin: 0 0 8px 0 !important;
+    color: white !important;
+    border: none !important;
+    padding: 0 !important;
 }}
-.yj-re-header .stats {{
-    display: flex;
-    gap: 24px;
-    margin-top: 20px;
-    flex-wrap: wrap;
+.yjre-header .yjre-subtitle {{
+    opacity: 0.7 !important;
+    font-size: 14px !important;
+    color: white !important;
 }}
-.yj-re-header .stat-item {{
-    text-align: center;
+.yjre-stats {{
+    display: flex !important;
+    gap: 24px !important;
+    margin-top: 20px !important;
+    flex-wrap: wrap !important;
 }}
-.yj-re-header .stat-number {{
-    font-size: 28px;
-    font-weight: 700;
-    color: #c084fc;
+.yjre-stat-item {{
+    text-align: center !important;
 }}
-.yj-re-header .stat-label {{
-    font-size: 13px;
-    opacity: 0.7;
+.yjre-stat-number {{
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: #c084fc !important;
 }}
-.yj-summary-cards {{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+.yjre-stat-label {{
+    font-size: 13px !important;
+    opacity: 0.7 !important;
+    color: white !important;
 }}
-.yj-summary-card {{
-    background: #1a1a1a;
-    border: 1px solid #2a2a2a;
-    border-radius: 12px;
-    padding: 20px;
+.yjre-summary-cards {{
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+    margin-bottom: 24px !important;
 }}
-.yj-summary-card .label {{
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
+.yjre-summary-card {{
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
 }}
-.yj-summary-card .value {{
-    font-size: 22px;
-    font-weight: 700;
-    color: #fff;
+.yjre-summary-card .yjre-label {{
+    font-size: 13px !important;
+    color: #888 !important;
+    margin-bottom: 8px !important;
 }}
-.yj-summary-card .sub {{
-    font-size: 13px;
-    color: #888;
-    margin-top: 4px;
+.yjre-summary-card .yjre-value {{
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #fff !important;
 }}
-.yj-section-title {{
-    font-size: 18px;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.yjre-summary-card .yjre-sub {{
+    font-size: 13px !important;
+    color: #666 !important;
+    margin-top: 4px !important;
 }}
-.yj-section-title .count {{
-    background: #333;
-    color: #999;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 400;
+.yjre-section-title {{
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
 }}
-.yj-tap-hint {{
-    text-align: center;
-    padding: 12px;
-    color: #444;
-    font-size: 13px;
-    margin-bottom: 16px;
+.yjre-section-title .yjre-count {{
+    background: #333 !important;
+    color: #999 !important;
+    padding: 4px 10px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
 }}
-.yj-re-list {{
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 32px;
+.yjre-tap-hint {{
+    text-align: center !important;
+    padding: 12px !important;
+    color: #666 !important;
+    font-size: 13px !important;
+    margin-bottom: 16px !important;
 }}
-.yj-re-card {{
-    background: #1a1a1a;
-    border: 1px solid #2a2a2a;
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    transition: all 0.2s;
+.yjre-list {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-bottom: 32px !important;
 }}
-.yj-re-card:active {{
-    background: #222;
+.yjre-card {{
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    user-select: none !important;
+    transition: all 0.2s !important;
 }}
-.yj-re-card-main {{
-    padding: 20px;
-    position: relative;
+.yjre-card:hover {{
+    border-color: #555 !important;
 }}
-.yj-re-expand-icon {{
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
-    color: #555;
-    transition: transform 0.3s;
+.yjre-card-main {{
+    padding: 20px !important;
+    position: relative !important;
 }}
-.yj-re-card.expanded .yj-re-expand-icon {{
-    transform: translateY(-50%) rotate(180deg);
+.yjre-expand-icon {{
+    position: absolute !important;
+    right: 16px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 24px !important;
+    height: 24px !important;
+    color: #555 !important;
+    transition: transform 0.3s !important;
 }}
-.yj-re-header-row {{
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-    padding-right: 30px;
+.yjre-card.yjre-expanded .yjre-expand-icon {{
+    transform: translateY(-50%) rotate(180deg) !important;
 }}
-.yj-re-name {{
-    font-size: 17px;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 4px;
+.yjre-header-row {{
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    margin-bottom: 12px !important;
+    padding-right: 30px !important;
 }}
-.yj-re-address {{
-    font-size: 14px;
-    color: #888;
+.yjre-name {{
+    font-size: 17px !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    margin-bottom: 4px !important;
 }}
-.yj-re-price {{
-    text-align: right;
+.yjre-address {{
+    font-size: 14px !important;
+    color: #888 !important;
 }}
-.yj-re-price .amount {{
-    font-size: 20px;
-    font-weight: 700;
-    color: #c084fc;
+.yjre-price {{
+    text-align: right !important;
 }}
-.yj-re-price .per-area {{
-    font-size: 12px;
-    color: #666;
-    margin-top: 2px;
+.yjre-price .yjre-amount {{
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    color: #c084fc !important;
 }}
-.yj-re-summary {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    font-size: 14px;
-    color: #aaa;
+.yjre-price .yjre-per-area {{
+    font-size: 12px !important;
+    color: #666 !important;
+    margin-top: 2px !important;
 }}
-.yj-re-badge {{
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 500;
+.yjre-summary {{
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+    font-size: 14px !important;
+    color: #aaa !important;
 }}
-.yj-re-badge.new {{
-    background: rgba(74, 222, 128, 0.15);
-    color: #4ade80;
-    border: 1px solid rgba(74, 222, 128, 0.3);
+.yjre-badge {{
+    display: inline-block !important;
+    padding: 3px 8px !important;
+    border-radius: 10px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    margin-left: 6px !important;
+    vertical-align: middle !important;
 }}
-.yj-re-badge.high {{
-    background: rgba(248, 113, 113, 0.15);
-    color: #f87171;
-    border: 1px solid rgba(248, 113, 113, 0.3);
+.yjre-badge-new {{
+    background: rgba(74, 222, 128, 0.2) !important;
+    color: #4ade80 !important;
+    border: 1px solid rgba(74, 222, 128, 0.4) !important;
 }}
-.yj-re-detail {{
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-    background: #151515;
+.yjre-detail {{
+    max-height: 0 !important;
+    overflow: hidden !important;
+    transition: max-height 0.3s ease-out !important;
+    background: #141414 !important;
 }}
-.yj-re-card.expanded .yj-re-detail {{
-    max-height: 350px;
+.yjre-card.yjre-expanded .yjre-detail {{
+    max-height: 400px !important;
 }}
-.yj-re-detail-inner {{
-    padding: 20px;
-    border-top: 1px solid #252525;
+.yjre-detail-inner {{
+    padding: 20px !important;
+    border-top: 1px solid #252525 !important;
 }}
-.yj-re-detail-grid {{
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+.yjre-detail-grid {{
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
 }}
-.yj-re-detail-item {{
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.yjre-detail-item {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
 }}
-.yj-re-detail-item .label {{
-    font-size: 12px;
-    color: #666;
+.yjre-detail-item .yjre-label {{
+    font-size: 12px !important;
+    color: #666 !important;
 }}
-.yj-re-detail-item .value {{
-    font-size: 15px;
-    color: #ccc;
+.yjre-detail-item .yjre-value {{
+    font-size: 15px !important;
+    color: #ccc !important;
 }}
-.yj-re-footer {{
-    text-align: center;
-    padding: 24px;
-    color: #555;
-    font-size: 13px;
+.yjre-footer {{
+    text-align: center !important;
+    padding: 24px !important;
+    color: #555 !important;
+    font-size: 13px !important;
 }}
-.yj-re-footer a {{
-    color: #c084fc;
-    text-decoration: none;
+.yjre-footer a {{
+    color: #c084fc !important;
+    text-decoration: none !important;
 }}
 @media (max-width: 600px) {{
-    .yj-re-header {{
-        padding: 20px;
+    .yjre-header {{
+        padding: 20px !important;
     }}
-    .yj-re-header h2 {{
-        font-size: 22px;
+    .yjre-header h2 {{
+        font-size: 20px !important;
     }}
-    .yj-re-header .stats {{
-        gap: 16px;
+    .yjre-stats {{
+        gap: 16px !important;
     }}
-    .yj-re-header .stat-number {{
-        font-size: 22px;
+    .yjre-stat-number {{
+        font-size: 22px !important;
     }}
-    .yj-re-header-row {{
-        flex-direction: column;
-        gap: 12px;
+    .yjre-header-row {{
+        flex-direction: column !important;
+        gap: 12px !important;
     }}
-    .yj-re-price {{
-        text-align: left;
+    .yjre-price {{
+        text-align: left !important;
     }}
-    .yj-re-detail-grid {{
-        grid-template-columns: 1fr;
+    .yjre-detail-grid {{
+        grid-template-columns: 1fr !important;
     }}
-    .yj-summary-cards {{
-        grid-template-columns: 1fr 1fr;
+    .yjre-summary-cards {{
+        grid-template-columns: 1fr !important;
     }}
 }}
 </style>
 
-<div class="yj-re-container">
-    <div class="yj-re-header">
-        <h2>🏠 여주시 부동산 실거래가</h2>
-        <p class="subtitle">{year}년 {month}월 기준 · 국토교통부 실거래가 공개시스템</p>
-        <div class="stats">
-            <div class="stat-item">
-                <div class="stat-number">{total_count}</div>
-                <div class="stat-label">{month}월 거래건수</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">{format_price(avg_price)}</div>
-                <div class="stat-label">평균 거래가</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">{len(recent_trades)}</div>
-                <div class="stat-label">최근 7일</div>
-            </div>
+<div class="yjre-header">
+    <h2>🏠 여주시 부동산 실거래가</h2>
+    <p class="yjre-subtitle">{year}년 {month}월 기준 · 국토교통부 실거래가 공개시스템</p>
+    <div class="yjre-stats">
+        <div class="yjre-stat-item">
+            <div class="yjre-stat-number">{total_count}</div>
+            <div class="yjre-stat-label">{month}월 거래건수</div>
+        </div>
+        <div class="yjre-stat-item">
+            <div class="yjre-stat-number">{format_price(avg_price)}</div>
+            <div class="yjre-stat-label">평균 거래가</div>
+        </div>
+        <div class="yjre-stat-item">
+            <div class="yjre-stat-number">{len(recent_trades)}</div>
+            <div class="yjre-stat-label">최근 7일</div>
         </div>
     </div>
+</div>
 
-    <div class="yj-summary-cards">
-        <div class="yj-summary-card">
-            <div class="label">최고가 거래</div>
-            <div class="value">{format_price(max_price)}</div>
-        </div>
-        <div class="yj-summary-card">
-            <div class="label">최다 거래 단지</div>
-            <div class="value">{top_apt[1]}건</div>
-            <div class="sub">{top_apt_name}</div>
-        </div>
+<div class="yjre-summary-cards">
+    <div class="yjre-summary-card">
+        <div class="yjre-label">최고가 거래</div>
+        <div class="yjre-value">{format_price(max_price)}</div>
     </div>
-
-    <div class="yj-section-title">
-        최근 거래 내역 <span class="count">아파트 {total_count}건</span>
+    <div class="yjre-summary-card">
+        <div class="yjre-label">최다 거래 단지</div>
+        <div class="yjre-value">{top_apt[1]}건</div>
+        <div class="yjre-sub">{top_apt_name}</div>
     </div>
+</div>
 
-    <p class="yj-tap-hint">거래 내역을 탭하면 상세정보를 볼 수 있습니다</p>
+<div class="yjre-section-title">
+    최근 거래 내역 <span class="yjre-count">아파트 {total_count}건</span>
+</div>
 
-    <div class="yj-re-list">
+<p class="yjre-tap-hint">📱 거래 내역을 탭하면 상세정보를 볼 수 있습니다</p>
+
+<div class="yjre-list">
 '''
 
-    # 거래 내역을 최신순으로 정렬
     sorted_trades = sorted(trades, key=lambda x: (
         int(x['deal_year'] or 0),
         int(x['deal_month'] or 0),
         int(x['deal_day'] or 0)
     ), reverse=True)
 
-    for trade in sorted_trades[:30]:  # 최근 30건만
+    for trade in sorted_trades[:30]:
         amount = parse_deal_amount(trade['deal_amount'])
         area = float(trade['exclusive_area'] or 0)
         pyeong = round(area / 3.3058, 1)
         price_per_pyeong = calculate_price_per_area(amount, area)
         
-        # 뱃지
         badge_html = ''
         try:
             deal_day = int(trade['deal_day']) if trade['deal_day'] else 0
@@ -472,7 +469,7 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
             if deal_day and deal_month and deal_year:
                 deal_datetime = datetime(deal_year, deal_month, deal_day)
                 if (datetime.now() - deal_datetime).days <= 3:
-                    badge_html = '<span class="yj-re-badge new">NEW</span>'
+                    badge_html = '<span class="yjre-badge yjre-badge-new">NEW</span>'
         except:
             pass
         
@@ -481,118 +478,99 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
         deal_day_str = trade['deal_day'] if trade['deal_day'] else ''
         
         html += f'''
-        <div class="yj-re-card" onclick="toggleReCard(this)">
-            <div class="yj-re-card-main">
-                <svg class="yj-re-expand-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-                <div class="yj-re-header-row">
-                    <div>
-                        <div class="yj-re-name">
-                            {trade['apt_name']}
-                            {badge_html}
-                        </div>
-                        <div class="yj-re-address">여주시 {trade['dong']} {trade['jibun']}</div>
-                    </div>
-                    <div class="yj-re-price">
-                        <div class="amount">{format_price(amount)}</div>
-                        <div class="per-area">평당 {price_per_pyeong:,}만</div>
-                    </div>
-                </div>
-                <div class="yj-re-summary">
-                    <span>{area}㎡ ({pyeong}평)</span>
-                    <span>{floor_str}층</span>
-                    <span>{deal_month_str}/{deal_day_str} 계약</span>
-                </div>
+<div class="yjre-card" onclick="yjreToggle(this)">
+    <div class="yjre-card-main">
+        <svg class="yjre-expand-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+        <div class="yjre-header-row">
+            <div>
+                <div class="yjre-name">{trade['apt_name']}{badge_html}</div>
+                <div class="yjre-address">여주시 {trade['dong']} {trade['jibun']}</div>
             </div>
-            <div class="yj-re-detail">
-                <div class="yj-re-detail-inner">
-                    <div class="yj-re-detail-grid">
-                        <div class="yj-re-detail-item">
-                            <span class="label">전용면적</span>
-                            <span class="value">{area}㎡ ({pyeong}평)</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">거래금액</span>
-                            <span class="value">{format_price(amount)}만원</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">층</span>
-                            <span class="value">{floor_str}층</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">건축년도</span>
-                            <span class="value">{trade['build_year']}년</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">계약일</span>
-                            <span class="value">{trade['deal_year']}.{trade['deal_month']}.{trade['deal_day']}</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">거래유형</span>
-                            <span class="value">{trade['deal_type'] or '중개거래'}</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">법정동</span>
-                            <span class="value">{trade['dong']}</span>
-                        </div>
-                        <div class="yj-re-detail-item">
-                            <span class="label">평당가</span>
-                            <span class="value">{price_per_pyeong:,}만원</span>
-                        </div>
-                    </div>
+            <div class="yjre-price">
+                <div class="yjre-amount">{format_price(amount)}</div>
+                <div class="yjre-per-area">평당 {price_per_pyeong:,}만</div>
+            </div>
+        </div>
+        <div class="yjre-summary">
+            <span>{area}㎡ ({pyeong}평)</span>
+            <span>{floor_str}층</span>
+            <span>{deal_month_str}/{deal_day_str} 계약</span>
+        </div>
+    </div>
+    <div class="yjre-detail">
+        <div class="yjre-detail-inner">
+            <div class="yjre-detail-grid">
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">전용면적</span>
+                    <span class="yjre-value">{area}㎡ ({pyeong}평)</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">거래금액</span>
+                    <span class="yjre-value">{format_price(amount)}만원</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">층</span>
+                    <span class="yjre-value">{floor_str}층</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">건축년도</span>
+                    <span class="yjre-value">{trade['build_year']}년</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">계약일</span>
+                    <span class="yjre-value">{trade['deal_year']}.{trade['deal_month']}.{trade['deal_day']}</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">거래유형</span>
+                    <span class="yjre-value">{trade['deal_type'] or '중개거래'}</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">법정동</span>
+                    <span class="yjre-value">{trade['dong']}</span>
+                </div>
+                <div class="yjre-detail-item">
+                    <span class="yjre-label">평당가</span>
+                    <span class="yjre-value">{price_per_pyeong:,}만원</span>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 '''
 
     html += f'''
-    </div>
+</div>
 
-    <div class="yj-re-footer">
-        <p>자료 출처: <a href="https://rt.molit.go.kr" target="_blank">국토교통부 실거래가 공개시스템</a></p>
-        <p style="margin-top: 8px; color: #444;">※ 실거래 신고 후 자료 반영까지 시차가 있을 수 있습니다</p>
-        <p style="margin-top: 8px;">업데이트: {today}</p>
-    </div>
+<div class="yjre-footer">
+    <p>자료 출처: <a href="https://rt.molit.go.kr" target="_blank">국토교통부 실거래가 공개시스템</a></p>
+    <p style="margin-top: 8px !important; color: #444 !important;">※ 실거래 신고 후 자료 반영까지 시차가 있을 수 있습니다</p>
+    <p style="margin-top: 8px !important;">업데이트: {today}</p>
+</div>
 </div>
 
 <script>
-var yjReTouchStartY = 0;
-var yjReTouchEndY = 0;
-var yjReIsTouchMove = false;
-
+var yjreTouchStartY = 0;
+var yjreTouchMove = false;
 document.addEventListener('touchstart', function(e) {{
-    yjReTouchStartY = e.touches[0].clientY;
-    yjReIsTouchMove = false;
+    yjreTouchStartY = e.touches[0].clientY;
+    yjreTouchMove = false;
 }}, {{ passive: true }});
-
 document.addEventListener('touchmove', function(e) {{
-    yjReTouchEndY = e.touches[0].clientY;
-    if (Math.abs(yjReTouchStartY - yjReTouchEndY) > 10) {{
-        yjReIsTouchMove = true;
+    if (Math.abs(yjreTouchStartY - e.touches[0].clientY) > 10) {{
+        yjreTouchMove = true;
     }}
 }}, {{ passive: true }});
-
-function toggleReCard(card) {{
-    if (yjReIsTouchMove) return;
-    
-    var allCards = document.querySelectorAll('.yj-re-card.expanded');
-    allCards.forEach(function(openCard) {{
-        if (openCard !== card) {{
-            openCard.classList.remove('expanded');
-        }}
+function yjreToggle(card) {{
+    if (yjreTouchMove) return;
+    document.querySelectorAll('.yjre-card.yjre-expanded').forEach(function(c) {{
+        if (c !== card) c.classList.remove('yjre-expanded');
     }});
-    
-    card.classList.toggle('expanded');
-    
-    if (card.classList.contains('expanded')) {{
+    card.classList.toggle('yjre-expanded');
+    if (card.classList.contains('yjre-expanded')) {{
         setTimeout(function() {{
-            var rect = card.getBoundingClientRect();
-            var offsetTop = window.pageYOffset + rect.top - 100;
-            window.scrollTo({{
-                top: offsetTop,
-                behavior: 'smooth'
-            }});
+            card.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
         }}, 100);
     }}
 }}
@@ -603,7 +581,6 @@ function toggleReCard(card) {{
 
 
 def post_to_wordpress(title: str, content: str, category_id: int = None) -> bool:
-    """워드프레스에 포스트 발행"""
     if not all([WP_URL, WP_USER, WP_APP_PASSWORD]):
         print("Warning: WordPress credentials not set")
         output_file = f"realestate_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
@@ -642,13 +619,10 @@ def post_to_wordpress(title: str, content: str, category_id: int = None) -> bool
 def main():
     print("🏠 여주굿뉴스 부동산 실거래가 업데이트 시작...")
     
-    # 이번 달 조회
     current_month = datetime.now().strftime('%Y%m')
     
-    # 아파트 매매 실거래가 조회
     trades = fetch_apt_trades(deal_ymd=current_month)
     
-    # 이번 달 거래가 적으면 지난 달도 조회
     if len(trades) < 10:
         last_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y%m')
         last_month_trades = fetch_apt_trades(deal_ymd=last_month)
@@ -659,15 +633,12 @@ def main():
         print("거래 데이터가 없습니다.")
         return
     
-    # HTML 생성
     content = generate_html(trades, current_month)
     
-    # 제목 생성
     year = current_month[:4]
     month = current_month[4:]
     title = f"[부동산] {year}년 {month}월 여주시 아파트 실거래가 ({len(trades)}건)"
     
-    # 워드프레스 발행
     post_to_wordpress(title, content, category_id=137)
     
     print("✅ 완료!")
