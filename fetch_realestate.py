@@ -20,9 +20,9 @@ WP_USER = os.environ.get('WP_USER', '')
 WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD', '')
 
 # 여주시 법정동 코드 (앞 5자리)
-YEOJU_CODE = '41670000'
+YEOJU_CODE = '41670'
 
-# API URL (아파트 매매 실거래 상세)
+# API URL
 APT_TRADE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade'
 
 
@@ -33,7 +33,6 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
         return []
     
     if not deal_ymd:
-        # 이번 달
         deal_ymd = datetime.now().strftime('%Y%m')
     
     params = {
@@ -41,7 +40,7 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
         'LAWD_CD': lawd_cd,
         'DEAL_YMD': deal_ymd,
         'pageNo': 1,
-        'numOfRows': 100
+        'numOfRows': 1000
     }
     
     try:
@@ -53,7 +52,7 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
         
         # 에러 체크
         result_code = root.find('.//resultCode')
-        if result_code is not None and result_code.text != '00':
+        if result_code is not None and result_code.text not in ['00', '000']:
             result_msg = root.find('.//resultMsg')
             print(f"API Error: {result_msg.text if result_msg is not None else 'Unknown'}")
             return []
@@ -61,23 +60,20 @@ def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Di
         trades = []
         for item in root.findall('.//item'):
             trade = {
-                'apt_name': get_text(item, '아파트'),
-                'deal_amount': get_text(item, '거래금액'),
-                'build_year': get_text(item, '건축년도'),
-                'deal_year': get_text(item, '년'),
-                'deal_month': get_text(item, '월'),
-                'deal_day': get_text(item, '일'),
-                'dong': get_text(item, '법정동'),
-                'jibun': get_text(item, '지번'),
-                'exclusive_area': get_text(item, '전용면적'),
-                'floor': get_text(item, '층'),
-                'road_name': get_text(item, '도로명'),
-                'road_name_bonbun': get_text(item, '도로명건물본번호코드'),
-                'road_name_bubun': get_text(item, '도로명건물부번호코드'),
-                'apt_dong': get_text(item, '동'),  # 아파트 동
-                'deal_type': get_text(item, '거래유형'),
-                'dealer_address': get_text(item, '중개사소재지'),
-                'registration_date': get_text(item, '등기일자'),
+                'apt_name': get_text(item, 'aptNm'),
+                'deal_amount': get_text(item, 'dealAmount'),
+                'build_year': get_text(item, 'buildYear'),
+                'deal_year': get_text(item, 'dealYear'),
+                'deal_month': get_text(item, 'dealMonth'),
+                'deal_day': get_text(item, 'dealDay'),
+                'dong': get_text(item, 'umdNm'),
+                'jibun': get_text(item, 'jibun'),
+                'exclusive_area': get_text(item, 'excluUseAr'),
+                'floor': get_text(item, 'floor'),
+                'deal_type': get_text(item, 'dealingGbn'),
+                'apt_dong': get_text(item, 'aptDong'),
+                'rgst_date': get_text(item, 'rgstDate'),
+                'sgg_cd': get_text(item, 'sggCd'),
             }
             trades.append(trade)
         
@@ -124,23 +120,6 @@ def calculate_price_per_area(amount: int, area: float) -> int:
     return int(amount / pyeong)
 
 
-def is_new_record(trade: Dict, all_trades: List[Dict]) -> bool:
-    """신고가 여부 판단 (같은 아파트, 비슷한 면적)"""
-    apt_name = trade['apt_name']
-    area = float(trade['exclusive_area'] or 0)
-    amount = parse_deal_amount(trade['deal_amount'])
-    
-    for t in all_trades:
-        if t['apt_name'] == apt_name:
-            t_area = float(t['exclusive_area'] or 0)
-            # 비슷한 면적 (±5㎡)
-            if abs(t_area - area) <= 5:
-                t_amount = parse_deal_amount(t['deal_amount'])
-                if t_amount > amount:
-                    return False
-    return True
-
-
 def generate_html(trades: List[Dict], year_month: str) -> str:
     """부동산 실거래가 HTML 생성"""
     year = year_month[:4]
@@ -158,17 +137,23 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
     now = datetime.now()
     for t in trades:
         try:
-            deal_date = datetime(int(t['deal_year']), int(t['deal_month']), int(t['deal_day']))
-            if (now - deal_date).days <= 7:
-                recent_trades.append(t)
+            deal_day = int(t['deal_day']) if t['deal_day'] else 0
+            deal_month = int(t['deal_month']) if t['deal_month'] else 0
+            deal_year = int(t['deal_year']) if t['deal_year'] else 0
+            if deal_day and deal_month and deal_year:
+                deal_date = datetime(deal_year, deal_month, deal_day)
+                if (now - deal_date).days <= 7:
+                    recent_trades.append(t)
         except:
             pass
     
     # 아파트별 거래 수
     apt_counts = defaultdict(int)
     for t in trades:
-        apt_counts[t['apt_name']] += 1
+        if t['apt_name']:
+            apt_counts[t['apt_name']] += 1
     top_apt = max(apt_counts.items(), key=lambda x: x[1]) if apt_counts else ('', 0)
+    top_apt_name = top_apt[0][:12] + '...' if len(top_apt[0]) > 12 else top_apt[0]
     
     html = f'''
 <style>
@@ -452,7 +437,7 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
         <div class="yj-summary-card">
             <div class="label">최다 거래 단지</div>
             <div class="value">{top_apt[1]}건</div>
-            <div class="sub">{top_apt[0][:10]}...</div>
+            <div class="sub">{top_apt_name}</div>
         </div>
     </div>
 
@@ -478,16 +463,22 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
         pyeong = round(area / 3.3058, 1)
         price_per_pyeong = calculate_price_per_area(amount, area)
         
-        deal_date = f"{trade['deal_month']}/{trade['deal_day']}"
-        
         # 뱃지
         badge_html = ''
         try:
-            deal_datetime = datetime(int(trade['deal_year']), int(trade['deal_month']), int(trade['deal_day']))
-            if (datetime.now() - deal_datetime).days <= 3:
-                badge_html = '<span class="yj-re-badge new">NEW</span>'
+            deal_day = int(trade['deal_day']) if trade['deal_day'] else 0
+            deal_month = int(trade['deal_month']) if trade['deal_month'] else 0
+            deal_year = int(trade['deal_year']) if trade['deal_year'] else 0
+            if deal_day and deal_month and deal_year:
+                deal_datetime = datetime(deal_year, deal_month, deal_day)
+                if (datetime.now() - deal_datetime).days <= 3:
+                    badge_html = '<span class="yj-re-badge new">NEW</span>'
         except:
             pass
+        
+        floor_str = trade['floor'] if trade['floor'] else '-'
+        deal_month_str = trade['deal_month'] if trade['deal_month'] else ''
+        deal_day_str = trade['deal_day'] if trade['deal_day'] else ''
         
         html += f'''
         <div class="yj-re-card" onclick="toggleReCard(this)">
@@ -510,8 +501,8 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
                 </div>
                 <div class="yj-re-summary">
                     <span>{area}㎡ ({pyeong}평)</span>
-                    <span>{trade['floor']}층</span>
-                    <span>{trade['deal_month']}/{trade['deal_day']} 계약</span>
+                    <span>{floor_str}층</span>
+                    <span>{deal_month_str}/{deal_day_str} 계약</span>
                 </div>
             </div>
             <div class="yj-re-detail">
@@ -527,7 +518,7 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
                         </div>
                         <div class="yj-re-detail-item">
                             <span class="label">층</span>
-                            <span class="value">{trade['floor']}층</span>
+                            <span class="value">{floor_str}층</span>
                         </div>
                         <div class="yj-re-detail-item">
                             <span class="label">건축년도</span>
@@ -542,8 +533,8 @@ def generate_html(trades: List[Dict], year_month: str) -> str:
                             <span class="value">{trade['deal_type'] or '중개거래'}</span>
                         </div>
                         <div class="yj-re-detail-item">
-                            <span class="label">도로명주소</span>
-                            <span class="value">{trade['road_name'] or '-'}</span>
+                            <span class="label">법정동</span>
+                            <span class="value">{trade['dong']}</span>
                         </div>
                         <div class="yj-re-detail-item">
                             <span class="label">평당가</span>
@@ -615,7 +606,6 @@ def post_to_wordpress(title: str, content: str, category_id: int = None) -> bool
     """워드프레스에 포스트 발행"""
     if not all([WP_URL, WP_USER, WP_APP_PASSWORD]):
         print("Warning: WordPress credentials not set")
-        # 파일로 저장
         output_file = f"realestate_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>{title}</title></head><body style='background:#000;'>{content}</body></html>")
