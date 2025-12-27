@@ -678,7 +678,7 @@ def main():
     title = f"[부동산] {year}년 {month}월 여주시 아파트 실거래가 ({len(trades)}건)"
     
     # 워드프레스 발행
-    post_to_wordpress(title, content)
+    post_to_wordpress(title, content, category_id=137)
     
     print("✅ 완료!")
 
