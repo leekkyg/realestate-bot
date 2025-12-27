@@ -20,7 +20,7 @@ WP_USER = os.environ.get('WP_USER', '')
 WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD', '')
 
 # 여주시 법정동 코드 (앞 5자리)
-YEOJU_CODE = '41670'
+YEOJU_CODE = '41670000'
 
 # API URL (아파트 매매 실거래 상세)
 APT_TRADE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade'
