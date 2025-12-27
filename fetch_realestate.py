@@ -315,7 +315,7 @@ def generate_html(data: Dict) -> str:
         .card-name {{
             font-size: 13px;
             font-weight: 600;
-            color: #fff;
+            color: #E3E3E3
             margin-bottom: 3px;
             display: flex;
             align-items: center;
