@@ -735,7 +735,7 @@ def main():
     week_names = ['첫째', '둘째', '셋째', '넷째', '다섯째']
     week_str = week_names[min(week-1, 4)]
     
-    title = f"[부동산] {now.month}월 {week_str}주 여주시 실거래가 ({total}건)"
+    title = f"{now.month}월 {week_str}주 여주시 부동산 실거래가 ({total}건)"
     
     # iframe으로 GitHub Pages 삽입
     iframe_content = f'''
