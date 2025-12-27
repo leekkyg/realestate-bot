@@ -23,7 +23,7 @@ WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD', '')
 YEOJU_CODE = '41670'
 
 # API URL (아파트 매매 실거래 상세)
-APT_TRADE_URL = 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev'
+APT_TRADE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade'
 
 
 def fetch_apt_trades(lawd_cd: str = YEOJU_CODE, deal_ymd: str = None) -> List[Dict]:
