@@ -221,6 +221,11 @@ def generate_html(data: Dict) -> str:
     <title>여주시 부동산 실거래가</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+        ::-webkit-scrollbar-track {{ background: #1a1a1a; }}
+        ::-webkit-scrollbar-thumb {{ background: #444; border-radius: 4px; }}
+        ::-webkit-scrollbar-thumb:hover {{ background: #555; }}
+        html {{ scrollbar-width: thin; scrollbar-color: #444 #1a1a1a; }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
             background: #0a0a0a;
